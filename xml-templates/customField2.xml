@@ -1,0 +1,1 @@
+<customField name="Email Address" required="true" validCharacters="Any" whenToPrompt="Once"><description>Please provide an email address you can be reached at.</description><example>info.benchmark@dc.gov</example><minChars>1</minChars><maxChars>100</maxChars><displayOrder>2</displayOrder></customField>

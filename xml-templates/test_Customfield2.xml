@@ -1,0 +1,1 @@
+<customField validCharacters="Any" required="false" name="Email" whenToPrompt="Once"><description>Please enter the contact email for this property.</description><example>FirstNameLastName@Gmail.com</example><minChars>1</minChars><maxChars>50</maxChars><displayOrder>2</displayOrder></customField>

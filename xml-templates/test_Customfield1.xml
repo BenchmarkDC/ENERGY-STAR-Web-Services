@@ -1,0 +1,1 @@
+<customField validCharacters="Any" required="true" name="Contact Name" whenToPrompt="Once"><description>Please enter the contact name for this property.</description><example>First Name Last Name</example><minChars>1</minChars><maxChars>30</maxChars><displayOrder>1</displayOrder></customField>
