@@ -20,14 +20,10 @@ def createFolder(directory):
     except OSError:
         print ('Error: Creating directory. ' +  directory)
 
-createFolder('./CSV output/')
-ts =  time.gmtime()
-tstamp =  (time.strftime("%Y%m%d", ts))
-output_csvfile = "CSV output\metricsPMReports_" + tstamp +".csv"
 
-WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document_20181218.XLSX')
+WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document.XLSX')
 liveEnvironmentAccounts = WebServices_ReferenceDoc.sheet_by_index(3)
-pmMetricsToPull = WebServices_ReferenceDoc.sheet_by_index(5)
+propertiesToReject = WebServices_ReferenceDoc.sheet_by_index(6)
 PMUserName = liveEnvironmentAccounts.cell_value(1,1)
 PMPassword = liveEnvironmentAccounts.cell_value(1,2)
 
@@ -39,11 +35,11 @@ ES_Client = EnergyStarClient(PMUserName,PMPassword)
 ### Pulls all connected accounts and properties
 accountIDs =[]
 propertyIDs = []
-accountIDs = ES_Client.get_customer_list()
-i = 0
-
-
+accountIDs = [propertiesToReject.cell_value(r, 0) for r in range(propertiesToReject.nrows)]
+print (accountIDs)
+i = 1
 while i <len(accountIDs):
+	print (accountIDs[i])
 	with open('xml-templates/Account_Disconnection.xml') as template_file:
 		ES_Client.post_disconnect(template_file, accountIDs[i])
 	i += 1

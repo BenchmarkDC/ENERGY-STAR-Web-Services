@@ -1,33 +1,16 @@
 import xml.etree.ElementTree as Et
 from EnergyStarAPI import EnergyStarClient
-import array
-import xlrd
-import csv
-import os
-import smtplib
-import time
 from ast import literal_eval
-import logging
 from pyo365 import MSGraphProtocol, Connection, Account, Message
+from validate_email import validate_email
+import array, xlrd, csv, os, smtplib, time, logging
 
 filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'propertyConnectAccept.log')
 logging.basicConfig(filename=filename, level=logging.DEBUG, filemode='w')
 
- 
-def createFolder(directory):
-    try:
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-    except OSError:
-        print ('Error: Creating directory. ' +  directory)
 
-createFolder('./CSV output/')
-ts =  time.gmtime()
-tstamp =  (time.strftime("%Y%m%d_%H%M%S", ts))
-temp = "CSV output/temp.csv"
-output_csvfile = "CSV output/contact info_" + tstamp +".csv"
 
-WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document_20181218.XLSX')
+WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document.XLSX')
 customFieldSetUp = WebServices_ReferenceDoc.sheet_by_index(2)
 liveEnvironmentAccounts = WebServices_ReferenceDoc.sheet_by_index(3)
 DCBuildingList = WebServices_ReferenceDoc.sheet_by_index(4)
@@ -38,10 +21,8 @@ o365UserName = liveEnvironmentAccounts.cell_value(3,1)
 o365Password = liveEnvironmentAccounts.cell_value(3,2)
 numberofRows = customFieldSetUp.nrows
 numberofCoveredBuildings = DCBuildingList.nrows
-acceptMessageSubject = emailsToSend.cell_value(2,1)
-acceptMessageBody = emailsToSend.cell_value(2,2)
-rejectMessageSubject = emailsToSend.cell_value(2,1)
-rejectMessageBody = emailsToSend.cell_value(2,2)
+
+
 
 ### Web Services Login
 ES_Client = EnergyStarClient(PMUserName,PMPassword)
@@ -60,8 +41,8 @@ while i < numberofCoveredBuildings:
 propertyIDstoAccept = ES_Client.get_pending_propertyconnection_list_multipage_accept(DCRealPropertyIDs)
 propertyIDstoReject = ES_Client.get_pending_propertyconnection_list_multipage_reject(DCRealPropertyIDs)
 
-
-
+propertyIDstoAccept = list(set(propertyIDstoAccept))
+propertyIDstoReject = list(set(propertyIDstoReject))
 
 print ("----Accepts/Rejects invitation")
 
@@ -70,37 +51,59 @@ while i < len(propertyIDstoAccept):
 	with open('xml-templates/property_accept_connection.xml') as template_file:
 			ES_Client.post_property_response(template_file, propertyIDstoAccept[i])
 	propertyContactName = ''.join(ES_Client.get_Property_ContactName(propertyIDstoAccept[i]))
-	propertyContactEmail = ES_Client.get_Property_ContactEmail(propertyIDstoAccept[i])
+	propertyContactEmail = ''.join(ES_Client.get_Property_ContactEmail(propertyIDstoAccept[i]))
 	propertyDCRealID = ''.join(ES_Client.get_DCRealID(propertyIDstoAccept[i]))
-	propertyAdditionalDCRealID = ''.join(ES_Client.get_Additional_DCRealID(propertyIDstoAccept[i]))
-	#tempaccount = Et.fromstring(ES_Client.get_property_info()
-	m = account.new_message()
-	m.sender.address = 'info.benchmark@DC.gov'
-	m.to.add(propertyContactEmail)
-	m.subject = acceptMessageSubject
-	m.body = 'Dear ' + propertyContactName + ',<br><br>' + acceptMessageBody + propertyDCRealID + propertyAdditionalDCRealID + '<br><br>Thank you, <br><br> Energy Benchmarking Program'
-	m.send()
-	
-	i += 1
+	propertyName = ''.join(ES_Client.get_property_name(propertyIDstoAccept[i]))
+	acceptMessageSubject = emailsToSend.cell_value(2,1)
+	is_valid = validate_email(propertyContactEmail, verify = True)
+	if is_valid == True:
+		acceptMessageBody = emailsToSend.cell_value(2,2)
+		acceptMessageBody = acceptMessageBody.replace('[NAME]', propertyContactName)
+		acceptMessageBody = acceptMessageBody.replace('[PROPERTY NAME]', propertyName)
+		acceptMessageBody = acceptMessageBody.replace('[UBI]', propertyDCRealID)
+		m = account.new_message()
+		m.sender.address = 'info.benchmark@DC.gov'
+		m.to.add(propertyContactEmail)
+		m.subject = acceptMessageSubject
+		m.body = acceptMessageBody
+		m.send()
+		i += 1
+	else:
+		i += 1
 
-### Re-WORK THIS
 
 i = 0
 while i < len(propertyIDstoReject):
-	propertyContactName = ''.join(ES_Client.get_Property_ContactName(propertyIDstoReject[i]))
-	propertyContactEmail = ES_Client.get_Property_ContactEmail(propertyIDstoReject[i])
-	propertyDCRealID = ''.join(ES_Client.get_DCRealID(propertyIDstoReject[i]))
-	propertyAdditionalDCRealID = ''.join(ES_Client.get_Additional_DCRealID(propertyIDstoReject[i]))
-	#tempaccount = Et.fromstring(ES_Client.get_property_info()
-	m = account.new_message()
-	m.sender.address = 'info.benchmark@DC.gov'
-	m.to.add(propertyContactEmail)
-	m.subject = rejectMessageSubject
-	m.body = 'Dear ' + propertyContactName + ',<br><br>' + rejectMessageBody + propertyDCRealID + propertyAdditionalDCRealID + '<br><br>Thank you, <br><br> Energy Benchmarking Program'
-	m.send()	
 	with open('xml-templates/property_reject_connection.xml') as template_file:
-			ES_Client.post_property_response(template_file, propertyIDstoReject[i])
-	i += 1
+		ES_Client.post_property_response(template_file, propertyIDstoReject[i])
+	propertyContactName = ''.join(ES_Client.get_Property_ContactName(propertyIDstoReject[i]))
+	propertyContactEmail = ''.join(ES_Client.get_Property_ContactEmail(propertyIDstoReject[i]))
+	propertyDCRealID = ''.join(ES_Client.get_DCRealID(propertyIDstoReject[i]))
+	propertyName = ''.join(ES_Client.get_property_name(propertyIDstoReject[i]))
+	is_valid = validate_email(propertyContactEmail, verify = True)
+	if is_valid == True:
+		rejectMessageSubject = emailsToSend.cell_value(3,1)
+		rejectMessageBody = emailsToSend.cell_value(3,2)
+		rejectMessageBody = rejectMessageBody.replace('[NAME]', propertyContactName)
+		rejectMessageBody = rejectMessageBody.replace('[PROPERTY NAME]', propertyName)
+		rejectMessageBody = rejectMessageBody.replace('[UBI]', propertyDCRealID)
+		m = account.new_message()
+		m.sender.address = 'info.benchmark@DC.gov'
+		m.to.add(propertyContactEmail)
+		m.subject = rejectMessageSubject
+		m.body = rejectMessageBody
+		m.send()
+		with open('xml-templates/property_disconnection.xml') as template_file:
+			ES_Client.post_property_disconnect(template_file, propertyIDstoReject[i])
+		i +=1
+	else:
+
+		with open('xml-templates/property_disconnection.xml') as template_file:
+			ES_Client.post_property_disconnect(template_file, propertyIDstoReject[i])
+		i +=1	
+
+
+### Accepts all Meter Requests
 
 accountIDs =[]
 propertyIDs = []
@@ -113,8 +116,21 @@ while i <len(accountIDs):
 
 meterIDstoAccept = ES_Client.get_pending_meterconnection_list_multipage_accept(propertyIDs)
 
+meterIDstoAccept = list(set(meterIDstoAccept))
+
 i = 0
 while i < len(meterIDstoAccept):
 	with open('xml-templates/meter_accept_connection.xml') as template_file:
 			ES_Client.post_meter_response(template_file, meterIDstoAccept[i])
+	i += 1
+
+
+meterIDstoReject = ES_Client.get_pending_meterconnection_list_multipage_reject()
+
+meterIDstoReject = list(set(meterIDstoReject))
+
+i = 0
+while i < len(meterIDstoReject):
+	with open('xml-templates/meter_reject_connection.xml') as template_file:
+			ES_Client.post_meter_response(template_file, meterIDstoReject[i])
 	i += 1

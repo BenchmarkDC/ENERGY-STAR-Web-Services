@@ -11,7 +11,7 @@ import logging
 filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'dataExchangeSettings.log')
 logging.basicConfig(filename=filename, level=logging.DEBUG, filemode='w')
 
-WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document_20181218.XLSX')
+WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document.XLSX')
 customFieldSetUp = WebServices_ReferenceDoc.sheet_by_index(2)
 liveEnvironmentAccounts = WebServices_ReferenceDoc.sheet_by_index(3)
 PMUserName = liveEnvironmentAccounts.cell_value(1,1)

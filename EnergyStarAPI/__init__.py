@@ -94,11 +94,17 @@ class EnergyStarClient(object):
             print("Getting data from page " + str(page))
             page += 1
             response = requests.get(url, auth=(self.username, self.password))
+            dataforlink = response.text
+            root = Et.fromstring(dataforlink)
+            for ID in root.findall("account"):
+                accountIDX = ID.find("accountId").text
+                accountIDs.append(accountIDX)
+                print (accountIDX)
+
             if response.status_code != 200:
                 print(response.status_code, response.reason)
                 break
-            dataforlink = response.text
-            root = Et.fromstring(dataforlink)
+
             if root.find('links') is not None:
                 for element in root.find('links'):
                     if element.get('linkDescription') == 'next page':
@@ -106,10 +112,7 @@ class EnergyStarClient(object):
                         break
             else:
                 url = None
-            for ID in root.findall("account"):
-                accountIDX = ID.find("accountId").text
-                accountIDs.append(accountIDX)
-                print (accountIDX)
+
         return accountIDs
     
     def get_custom_field(self, customfieldID):
@@ -180,6 +183,8 @@ class EnergyStarClient(object):
         page = 1
         PropertyIDs = []
         DCRealPropertyID = []
+        PropertyIDX = []
+        DCRealPropertyIDX = []
         while url:
             print (url)
             print("Getting data from page " + str(page))
@@ -198,12 +203,19 @@ class EnergyStarClient(object):
             else:
                 url = None
             for ID in root.findall("property"):
-                PropertyIDY = ID.find("propertyId").text
-                for DC in root.findall("property"):
-                    for DC2 in DC.findall(".//*[@name='DC Real Property ID']"):
-                        DCRealPropertyIDY = DC2.text
-                if DCRealPropertyIDY in DCRealPropertyIDList:
-                        PropertyIDs.append(PropertyIDY)
+                PropertyIDX.append(ID.find("propertyId").text)
+            for DC in root.findall("property"):
+                for DC2 in DC.findall(".//*[@name='DC Real Property ID']"):
+                    DCRealPropertyIDX.append(DC2.text)
+
+
+            i = 0
+            while i <len(PropertyIDX):
+                if DCRealPropertyIDX[i] in DCRealPropertyIDList:
+                    PropertyIDs.append(PropertyIDX[i])
+                    i+=1
+                else:
+                    i+=1
 
         return PropertyIDs
     def get_pending_propertyconnection_list_multipage_reject(self, DCRealPropertyIDList):
@@ -212,6 +224,8 @@ class EnergyStarClient(object):
         page = 1
         PropertyIDs = []
         DCRealPropertyID = []
+        PropertyIDX = []
+        DCRealPropertyIDX = []
         while url:
             print (url)
             print("Getting data from page " + str(page))
@@ -230,12 +244,19 @@ class EnergyStarClient(object):
             else:
                 url = None
             for ID in root.findall("property"):
-                PropertyIDY = ID.find("propertyId").text
-                for DC in root.findall("property"):
-                    for DC2 in DC.findall(".//*[@name='DC Real Property ID']"):
-                        DCRealPropertyIDY = DC2.text
-                if DCRealPropertyIDY not in DCRealPropertyIDList:
-                        PropertyIDs.append(PropertyIDY)
+                PropertyIDX.append(ID.find("propertyId").text)
+            for DC in root.findall("property"):
+                for DC2 in DC.findall(".//*[@name='DC Real Property ID']"):
+                    DCRealPropertyIDX.append(DC2.text)
+
+
+            i = 0
+            while i <len(PropertyIDX):
+                if DCRealPropertyIDX[i] not in DCRealPropertyIDList:
+                    PropertyIDs.append(PropertyIDX[i])
+                    i+=1
+                else:
+                    i+=1
 
         return PropertyIDs
         
@@ -267,7 +288,7 @@ class EnergyStarClient(object):
                 if propertyIDY in propertyIDstoAccept:
                     meterIDs.append(meterIDY)
         return meterIDs
-    def get_pending_meterconnection_list_multipage_reject(self,propertyIDstoReject):
+    def get_pending_meterconnection_list_multipage_reject(self):
         resource = self.domain + "/share/meter/pending/list"
         url = resource + "?page=1"
         page = 1
@@ -291,9 +312,7 @@ class EnergyStarClient(object):
                 url = None
             for ID in root.findall("meter"):
                 meterIDY = ID.find("meterId").text
-                propertyIDY = ID.find("propertyId").text
-                if propertyIDY in propertyIDstoReject:
-                    meterIDs.append(meterIDY)
+                meterIDs.append(meterIDY)
         return meterIDs
 
     def post_meter_response(self, template_file, meterID):
@@ -317,7 +336,17 @@ class EnergyStarClient(object):
             if response.status_code != 200:
                 return _raise_for_status(response)
             return response.text
-
+        
+    def post_property_disconnect(self, template_file, PropertyID):
+        if hasattr(template_file, "read"):
+            resource = self.domain + '/unshare/property/' + PropertyID
+            template_info = template_file.read()
+            headers = {'Content-Type': 'application/xml'}
+            acct = str(template_info)
+            response = requests.post(resource, data=acct, auth=(self.username, self.password), headers=headers)
+            if response.status_code != 200:
+                return _raise_for_status(response)
+            return response.text
     def get_property_list(self, accountID):
         resource = self.domain + 'account/'+accountID+'/property/list' 
         response = requests.get(resource, auth=(self.username, self.password))
@@ -336,38 +365,36 @@ class EnergyStarClient(object):
     def get_DCRealID(self, propertyID):
         resource = self.domain + '/property/' + propertyID  + '/customFieldList'
         response = requests.get(resource, auth=(self.username, self.password))
-        DCIDs = []
         data = response.text
         root = Et.fromstring(data)
         for DC2 in root.findall(".//*[@name='DC Real Property ID']"):
             DCRealPropertyIDY = DC2.text
-            DCIDs.append(DCRealPropertyIDY)
+            DCRealPropertyIDY = str(DCRealPropertyIDY).zfill(8)
 
         if response.status_code != 200:
             return _raise_for_status(response)
-        return DCIDs
+        return DCRealPropertyIDY
+    
     def get_Additional_DCRealID(self, propertyID):
         resource = self.domain + '/property/' + propertyID  + '/customFieldList'
         response = requests.get(resource, auth=(self.username, self.password))
-        DCIDs = []
         data = response.text
         root = Et.fromstring(data)
         for DC2 in root.findall(".//*[@name='Additional DC Real Property ID']"):
             DCRealPropertyIDY = DC2.text
-            DCIDs.append(DCRealPropertyIDY)
-
+        if DCRealPropertyIDY is None:
+            DCRealPropertyIDY = ""
         if response.status_code != 200:
             return _raise_for_status(response)
-        return DCIDs    
+        return DCRealPropertyIDY
+    
     def get_Property_ContactName(self, propertyID):
         resource = self.domain + '/property/' + propertyID  + '/customFieldList'
         response = requests.get(resource, auth=(self.username, self.password))
-        contactName = []
         data = response.text
         root = Et.fromstring(data)
         for Child in root.findall(".//*[@name='Property Contact Name']"):
-            temp = Child.text
-            contactName.append(temp)
+            contactName = Child.text
 
         if response.status_code != 200:
             return _raise_for_status(response)
@@ -376,12 +403,10 @@ class EnergyStarClient(object):
     def get_Property_ContactEmail(self, propertyID):
         resource = self.domain + '/property/' + propertyID  + '/customFieldList'
         response = requests.get(resource, auth=(self.username, self.password))
-        contactEmail = []
         data = response.text
         root = Et.fromstring(data)
         for Child in root.findall(".//*[@name='Property Contact Email']"):
-            temp = Child.text
-            contactEmail.append(temp)
+            contactEmail = Child.text
 
         if response.status_code != 200:
             return _raise_for_status(response)
@@ -394,6 +419,192 @@ class EnergyStarClient(object):
         if response.status_code != 200:
             return _raise_for_status(response)
         return response
+    
+    def get_property_name(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        property_Name =  root.find('name')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return property_Name.text
+    
+    def get_property_address1(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            address1 = child.get('address1')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return address1
+    
+    def get_property_address2(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            address2 = child.get('address2')
+        if address2 is None:
+            address2 = " "
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return address2
+    
+    def get_property_city(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            city = child.get('city')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return city
+    
+    def get_property_postal_code(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            postal_Code = child.get('postalCode')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return postal_Code
+    
+    def get_property_state(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            state = child.get('state')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return state
+    
+    def get_property_county(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            county = child.get('county')
+        if county is None:
+            county = " "
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return county
+    
+    def get_property_country(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('address'):
+            country = child.get('country')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return country
+    
+    def get_property_type_self_selected(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        primary_Function =  root.find('primaryFunction')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return primary_Function.text
+    
+    def get_property_construction_status(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        construction_Status =  root.find('constructionStatus')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return construction_Status.text
+    
+    def get_property_number_of_buildings(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        number_Of_Buildings =  root.find('numberOfBuildings')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return number_Of_Buildings.text
+    
+    def get_property_year_built(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        year_Built =  root.find('yearBuilt')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return year_Built.text
+    
+    def get_property_occupancy(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        occupancy_Percentage =  root.find('occupancyPercentage')
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return occupancy_Percentage.text
+    
+    def get_property_notes(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        notes =  root.find('notes')
+        if notes is None:
+            notes = " "
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return notes
+    def get_property_irrigated_area(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for child in root.findall('irrigatedArea'):
+            irrigated_Area = child.find('value')
+        if irrigated_Area is None:
+            irrigated_Area = " "
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return irrigated_Area.text
+    def get_property_identifiers_list(self, propertyID):
+        resource = self.domain + '/property/'+propertyID+'/identifier/list'
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return data
 ### Metric Calls 
     def get_metrics(self, PropertyID, year, month, measurements, metricsPM):
         resource = self.domain + '/property/' + PropertyID +'/metrics?year=' + year +'&month=' + month + '&measurementSystem=' + measurements
@@ -410,7 +621,14 @@ class EnergyStarClient(object):
         if response.status_code != 200:
             return _raise_for_status(response)
         return response
+### Meter Calls
+    def get_meter_association(self, PropertyID):
+        resource = self.domain + '/association/property/' + PropertyID + '/meter'
+        response = requests.get(resource, auth=(self.username, self.password))
 
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response.text    
 ### Unused calls        
     def get_meter_type(self, meter_id):
         resource = self.domain + '/meter/%s' % str(meter_id)

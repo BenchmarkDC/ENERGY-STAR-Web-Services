@@ -68,20 +68,68 @@ class SEEDClient(object):
         if response.status_code != 200:
             return _raise_for_status(response)
         return response
-    def post_perform_mapping(self,import_record,payload):
-        resource = self.domain+"upload/?import_record="+import_record
-        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), files = payload)
+    def post_save_newfile(self,datafile_record,payload):
+        resource = self.domain+"/import_files/"+datafile_record+"/save_raw_data/"
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), json = payload)
         
         if response.status_code != 200:
             return _raise_for_status(response)
         return response
-    def post_perform_dataquality(self,import_record,payload):
-        resource = self.domain+"upload/?import_record="+import_record
-        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), files = payload)
+
+    def get_property_info(self,property_id):
+        resource = self.domain+"properties/"+property_id+"/?organization_id=" + self.orgID
+        response = requests.get(resource, auth = HTTPBasicAuth(self.username, self.password))
         
         if response.status_code != 200:
             return _raise_for_status(response)
-        return response   
+        return response
+    def post_property_filter_list(self):
+        resource = self.domain+"labels/filter/?inventory_type=property&organization_id=" +self.orgID
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password))
+        
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response
+    def post_property_list(self,cycle_Id):
+        resource = self.domain+"properties/filter/?cycle="+cycle_Id+"&organization_id="+self.orgID+"&page=1&per_page=99999999"
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password))
+        
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response
+    def post_portolio_manager_save_data(self,payload):
+        resource = self.domain+"/upload/create_from_pm_import/"
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), json = payload)
+        
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response 
+
+class SEEDClientv2_1(object):
+    def __init__(self, username=None, password=None, orgID = None):
+        if username is None or password is None:
+            raise Exception("Username and Password required")
+        self.domain = "https://seedv2.lbl.gov/api/v2_1/"
+        self.username = username
+        self.password = password
+        self.orgID = orgID
+    def post_portfolio_manager_import(self,payload):
+        resource = self.domain+"portfolio_manager/report/"
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), json = payload)
+        
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response
+    def post_portfolio_manager_list(self,payload):
+        resource = self.domain+"portfolio_manager/template_list/"
+        response = requests.post(resource, auth = HTTPBasicAuth(self.username, self.password), json = payload)
+        
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return response
+
+
+        
 def _raise_for_status(response):
     """
     Custom raise_for_status with more appropriate error message.
