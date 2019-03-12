@@ -7,6 +7,7 @@ import requests
 import datetime
 import array
 import xml.etree.ElementTree as Et
+from fuzzywuzzy import fuzz, process
 from os.path import join, abspath
 
 class EnergyStarClient(object):
@@ -211,7 +212,8 @@ class EnergyStarClient(object):
 
             i = 0
             while i <len(PropertyIDX):
-                if DCRealPropertyIDX[i] in DCRealPropertyIDList:
+                ratio = process.extractOne(str(DCRealPropertyIDX[i]), DCRealPropertyIDList)
+                if ratio[1] >= 85:
                     PropertyIDs.append(PropertyIDX[i])
                     i+=1
                 else:
@@ -252,7 +254,8 @@ class EnergyStarClient(object):
 
             i = 0
             while i <len(PropertyIDX):
-                if DCRealPropertyIDX[i] not in DCRealPropertyIDList:
+                ratio = process.extractOne(str(DCRealPropertyIDX[i]), DCRealPropertyIDList)
+                if ratio[1] < 85:
                     PropertyIDs.append(PropertyIDX[i])
                     i+=1
                 else:
@@ -579,12 +582,15 @@ class EnergyStarClient(object):
         root = Et.fromstring(data)
         notes =  root.find('notes')
         if notes is None:
-            notes = " "
+            notes = ''
+        else:
+            notes = notes.text
 
         if response.status_code != 200:
             return _raise_for_status(response)
         return notes
     def get_property_irrigated_area(self, propertyID):
+        irrigated_Area = None
         resource = self.domain + '/property/' + propertyID
         response = requests.get(resource, auth=(self.username, self.password))
         data = response.text
@@ -592,11 +598,14 @@ class EnergyStarClient(object):
         for child in root.findall('irrigatedArea'):
             irrigated_Area = child.find('value')
         if irrigated_Area is None:
-            irrigated_Area = " "
+            irrigated_Area = ''
+        else:
+            irrigated_Area = irrigated_Area.text
 
         if response.status_code != 200:
             return _raise_for_status(response)
-        return irrigated_Area.text
+        return irrigated_Area
+    
     def get_property_identifiers_list(self, propertyID):
         resource = self.domain + '/property/'+propertyID+'/identifier/list'
         response = requests.get(resource, auth=(self.username, self.password))
