@@ -3,12 +3,26 @@ from EnergyStarAPI import EnergyStarClient
 from ast import literal_eval
 from pyo365 import MSGraphProtocol, Connection, Account, Message
 from validate_email import validate_email
+from datetime import timedelta, datetime
 import array, xlrd, csv, os, smtplib, time, logging
 
 filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'propertyConnectAccept.log')
 logging.basicConfig(filename=filename, level=logging.DEBUG, filemode='w')
 
+def createFolder(directory):
+    try:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    except OSError:
+        print ('Error: Creating directory. ' +  directory)
+createFolder('./CSV output/')
 
+temp = "CSV output/temp.csv"
+date_format = "%Y%m%d_%H%M%S"
+date_End_temp = datetime.now()
+tstamp = date_End_temp.strftime(date_format)
+accepted_csvfile = "CSV output/properties accepted_" + tstamp +".csv"
+rejected_csvfile = "CSV output/properties rejected_" + tstamp +".csv"
 
 WebServices_ReferenceDoc = xlrd.open_workbook('WebServices_Reference_Document.XLSX')
 customFieldSetUp = WebServices_ReferenceDoc.sheet_by_index(2)
@@ -44,6 +58,18 @@ propertyIDstoReject = ES_Client.get_pending_propertyconnection_list_multipage_re
 propertyIDstoAccept = list(set(propertyIDstoAccept))
 propertyIDstoReject = list(set(propertyIDstoReject))
 
+
+with open(accepted_csvfile,'w') as output:
+	writer = csv.writer(output, lineterminator='\n')
+	writer.writerow(['Accounts Accepted'])
+	writer.writerows(propertyIDstoAccept)
+
+with open(rejected_csvfile,'w') as output:
+	writer = csv.writer(output, lineterminator='\n')
+	writer.writerow(['Accounts Rejected'])
+	writer.writerows(propertyIDstoReject)
+
+
 print ("----Accepts/Rejects invitation")
 
 i = 0
@@ -56,7 +82,7 @@ while i < len(propertyIDstoAccept):
 	propertyName = ''.join(ES_Client.get_property_name(propertyIDstoAccept[i]))
 	acceptMessageSubject = emailsToSend.cell_value(2,1)
 	is_valid = validate_email(propertyContactEmail, verify = True)
-	if is_valid == True:
+	if is_valid != False:
 		acceptMessageBody = emailsToSend.cell_value(2,2)
 		acceptMessageBody = acceptMessageBody.replace('[NAME]', propertyContactName)
 		acceptMessageBody = acceptMessageBody.replace('[PROPERTY NAME]', propertyName)
@@ -81,7 +107,7 @@ while i < len(propertyIDstoReject):
 	propertyDCRealID = ''.join(ES_Client.get_DCRealID(propertyIDstoReject[i]))
 	propertyName = ''.join(ES_Client.get_property_name(propertyIDstoReject[i]))
 	is_valid = validate_email(propertyContactEmail, verify = True)
-	if is_valid == True:
+	if is_valid != False:
 		rejectMessageSubject = emailsToSend.cell_value(3,1)
 		rejectMessageBody = emailsToSend.cell_value(3,2)
 		rejectMessageBody = rejectMessageBody.replace('[NAME]', propertyContactName)

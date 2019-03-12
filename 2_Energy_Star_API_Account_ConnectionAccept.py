@@ -2,6 +2,7 @@ import xml.etree.ElementTree as Et
 from EnergyStarAPI import EnergyStarClient
 from pyo365 import MSGraphProtocol, Connection, Account, Message
 from validate_email import validate_email
+from datetime import timedelta, datetime
 import array, xlrd, csv, os, time, logging, timeit
 
 
@@ -13,11 +14,13 @@ def createFolder(directory):
     except OSError:
         print ('Error: Creating directory. ' +  directory)
 createFolder('./CSV output/')
-ts =  time.gmtime()
-tstamp =  (time.strftime("%Y%m%d_%H%M%S", ts))
 
 temp = "CSV output/temp.csv"
+date_format = "%Y%m%d_%H%M%S"
+date_End_temp = datetime.now()
+tstamp = date_End_temp.strftime(date_format)
 output_csvfile = "CSV output/contact info_" + tstamp +".csv"
+
 
 filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'connectAccept.log')
 logging.basicConfig(filename=filename, level=logging.DEBUG, filemode='w')
@@ -79,7 +82,7 @@ with open(output_csvfile,'w') as output:
 	writer = csv.writer(output, lineterminator='\n')
 	writer.writerow(headers)
 	writer.writerows(customFieldValues)
-output.close()
+
 
 
 contactName = []
@@ -92,11 +95,14 @@ with open(output_csvfile,newline='') as CL:
 	for row in reader:
 		contactName.append(row['Contact Name'])
 		contactEmail.append(row['Email Address'])
+		print (contactName, contactEmail)
 	while i < len(contactEmail):
 		messageSubject = emailsToSend.cell_value(1,1)
 		messageBody = emailsToSend.cell_value(1,2)
 		is_valid = validate_email(contactEmail[i], verify = True)
-		if is_valid == True:
+		print (is_valid)
+		if is_valid != False:
+			logging.warning('message will be sent')
 			m = account.new_message()
 			messageBody = messageBody.replace('[NAME]', contactName[i])
 			m.sender.address = 'info.benchmark@DC.gov'
@@ -107,6 +113,3 @@ with open(output_csvfile,newline='') as CL:
 			i += 1
 		else:
 			i += 1
-
-
-
