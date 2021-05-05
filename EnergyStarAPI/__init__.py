@@ -9,6 +9,8 @@ import array
 import xml.etree.ElementTree as Et
 from fuzzywuzzy import fuzz, process
 from os.path import join, abspath
+import numpy as np
+import pandas as pd
 
 class EnergyStarClient(object):
     def __init__(self, username=None, password=None):
@@ -169,6 +171,7 @@ class EnergyStarClient(object):
         if response.status_code != 200:
             return _raise_for_status(response)
         return accountIDs
+  
     def get_customer_info(self,accountID):
         resource = self.domain + 'customer/' + accountID 
         response = requests.get(resource, auth=(self.username, self.password))
@@ -177,7 +180,39 @@ class EnergyStarClient(object):
             return _raise_for_status(response)
         return response
 
-### Property Connection Calls
+
+### Property Connection Calls   
+
+
+
+    def get_pending_propertyconnection_list_multipage(self):
+        resource = self.domain + "/share/property/pending/list"
+        url = resource + "?page=1"
+        page = 1
+        PropertyIDs = pd.DataFrame({'PropertyID':[],'ReportedDCID':[]})
+        
+        while url:
+            print (url)
+            print("Getting data from page " + str(page))
+            page += 1
+            response = requests.get(url, auth=(self.username, self.password))
+            if response.status_code != 200:
+                print(response.status_code, response.reason)
+                break
+            dataforlink = response.text
+            root = Et.fromstring(dataforlink)
+            if root.find('links') is not None:
+                for element in root.find('links'):
+                    if element.get('linkDescription') == 'next page':
+                        url = self.domain + element.get('link')
+                        break
+            else:
+                url = None
+            for ID in root.findall("property"):
+                for DCID in ID.findall(".//*[@name='DC Real Property ID']"):
+                    PropertyIDs = PropertyIDs.append({'PropertyID': ID.find("propertyId").text, 'ReportedDCID': DCID.text},ignore_index=True)
+        return PropertyIDs    
+		    
     def get_pending_propertyconnection_list_multipage_accept(self, DCRealPropertyIDList):
         resource = self.domain + "/share/property/pending/list"
         url = resource + "?page=1"
@@ -335,6 +370,7 @@ class EnergyStarClient(object):
             template_info = template_file.read()
             headers = {'Content-Type': 'application/xml'}
             acct = str(template_info)
+            print (acct)
             response = requests.post(resource, data=acct, auth=(self.username, self.password), headers=headers)
             if response.status_code != 200:
                 return _raise_for_status(response)
@@ -614,6 +650,55 @@ class EnergyStarClient(object):
         if response.status_code != 200:
             return _raise_for_status(response)
         return data
+    
+    def get_property_all_details(self, propertyID):
+        resource = self.domain + '/property/' + propertyID
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        data_View = pd.DataFrame()
+        data_View['PropertyID'] = [propertyID]
+        data_View['name'] =  [root.find('name').text]
+        for child in root.findall('address'):
+            data_View['address1'] = [child.get('address1')]
+            data_View['address2'] = [child.get('address2')]
+            data_View['city'] = [child.get('city')]
+            data_View['postalCode'] = [child.get('postalCode')]
+            data_View['state'] = [child.get('state')]
+        data_View['primaryFunction'] =  [root.find('primaryFunction').text]
+        data_View['constructionStatus'] =  [root.find('constructionStatus').text]
+        data_View['numberOfBuildings'] =  [root.find('numberOfBuildings').text]
+        data_View['yearBuilt'] =  [root.find('yearBuilt').text]
+        data_View['occupancyPercentage'] =  [root.find('occupancyPercentage').text]
+        if root.find('notes') is not None:
+            data_View['notes'] =  [root.find('notes').text]
+        else: data_View['notes'] = ''
+        for child in root.findall('irrigatedArea'):
+            data_View['irrigatedArea'] = [child.find('value').text]
+            
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return data_View
+
+    def get_Property_CustomAll(self, propertyID):
+        resource = self.domain + '/property/' + propertyID  + '/customFieldList'
+        data_View = pd.DataFrame()
+        data_View['PropertyID'] = [propertyID]
+        response = requests.get(resource, auth=(self.username, self.password))
+        data = response.text
+        root = Et.fromstring(data)
+        for Child in root.findall(".//*[@name='Property Contact Email']"):
+            data_View['propertyContactEmail_Custom'] = Child.text
+        for Child in root.findall(".//*[@name='Property Contact Name']"):
+             data_View['propertyContactName_Custom'] = Child.text
+        for DC2 in root.findall(".//*[@name='Additional DC Real Property ID']"):
+             data_View['DCRalPropertyID_CustomAdditional'] = DC2.text
+        for DC2 in root.findall(".//*[@name='DC Real Property ID']"):
+            DCRealPropertyIDY = DC2.text
+            data_View['DCRalPropertyID_Custom'] = str(DCRealPropertyIDY).zfill(8)
+        if response.status_code != 200:
+            return _raise_for_status(response)
+        return data_View
 ### Metric Calls 
     def get_metrics(self, PropertyID, year, month, measurements, metricsPM):
         resource = self.domain + '/property/' + PropertyID +'/metrics?year=' + year +'&month=' + month + '&measurementSystem=' + measurements
