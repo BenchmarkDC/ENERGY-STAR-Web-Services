@@ -36,7 +36,7 @@ class Compliance_checker(object):
 		self.SEEDcycleYear = SEEDcycleYear
 		
 	def compliance_check(self):	
-		from SEEDAPI import SEEDClient, SEEDClientv2_1 
+		from SEEDAPI import SEEDClient 
 		from ast import literal_eval
 		import numpy as np
 		import pandas as pd
@@ -57,7 +57,6 @@ class Compliance_checker(object):
 
 		#SEED Log-in
 		SEEDClient = SEEDClient(self.SEEDUserName, self.SEEDPassword, self.SEEDorgID)
-		SEEDClientv2_1 = SEEDClientv2_1(self.SEEDUserName, self.SEEDPassword, self.SEEDorgID)
 		# pulls labels
 		
 		SEED_Property_Label_List = json.loads(SEEDClient.post_property_filter_list().text)
@@ -93,7 +92,7 @@ class Compliance_checker(object):
 		data_View3 = pd.json_normalize(data_View['results'],record_path='related',meta = 'property_view_id',record_prefix = '')
 		#data_View3.to_excel('Output\\test'+tstamp+'_.xlsx')
 		data_View4 = pd.merge(data_View2, data_View3, how='left',on='property_view_id') 
-		#data_View4.to_excel('Output\\SEED_PropertyTable_Download_'+tstamp+'_.xlsx')		
+			
 		data_View4.drop(columns=['related'], inplace = True)
 		data_View4.drop_duplicates(subset='property_view_id',inplace = True)
 		
@@ -110,6 +109,8 @@ class Compliance_checker(object):
 		for key in Property_Identifier_Lookup.keys():
 			data_View4[key] = data_View4.apply(add_identifier_labels,args=(key,),axis = 1)
 		
-		data_View4 = data_View4.drop(data_View4[data_View4['Compliant'] == 'Not Applied' ].index)	
+		data_View4 = data_View4.drop(data_View4[(data_View4['Compliant'] == 'Not Applied')&(data_View4['Duplicate Report - Not for Disclosure'] == 'Not Applied')].index)
+		#data_View4 = data_View4.drop(data_View4[data_View4['Duplicate Report - Not for Disclosure'] == 'Not Applied' ].index)		
+		data_View4.to_excel('Output\\SEED_PropertyTable_Download_'+tstamp+'_.xlsx')	
 		
 		return data_View4['PM Property ID'].tolist()

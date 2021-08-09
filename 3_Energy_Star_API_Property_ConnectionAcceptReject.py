@@ -51,30 +51,37 @@ pendingPropertyShares = ES_Client.get_pending_propertyconnection_list_multipage(
 
 
 for index, item in pendingPropertyShares.iterrows():
-	for ID in DCBuildingList['DC Real Property  Unique ID']:
-		ratio = process.extractOne(str(item['ReportedDCID']), ID)
-		if item['PropertyID'] == ID or ratio[1] >= 85:
-			item['acccept/reject'] = 'accept'
-			with open('xml-templates/property_accept_connection.xml') as template_file:
-				ES_Client.post_property_response(template_file, item['PropertyID'])
-			propertyContactName = ''.join(ES_Client.get_Property_ContactName(item['PropertyID']))
-			propertyContactEmail = ''.join(ES_Client.get_Property_ContactEmail(item['PropertyID']))
-			propertyDCRealID = ''.join(ES_Client.get_DCRealID(item['PropertyID']))
-			propertyName = ''.join(ES_Client.get_property_name(item['PropertyID']))
-			messageSubject = emailBodys.loc[emailBodys['Email Type'] == 'Property Share Accepted','Subject'].values[0]
-			messageBody = emailBodys.loc[emailBodys['Email Type'] == 'Property Share Accepted','Body'].values[0]
-			is_valid = validate_email(propertyContactEmail, verify = True)
-			if is_valid != False:
-				messageBody = messageBody.replace('[NAME]', propertyContactName)
-				messageBody = messageBody.replace('[PROPERTY NAME]', propertyName)
-				messageBody = messageBody.replace('[UBI]', propertyDCRealID)
-				m = account.new_message()
-				m.sender.address = 'info.benchmark@DC.gov'
-				m.to.add(propertyContactEmail)
-				m.subject = messageSubject
-				m.body = messageBody
-				m.send()
-	else:
+	"""
+	choices = DCBuildingList['DC Real Property  Unique ID'].tolist()
+	print (item['ReportedDCID'])
+	ratio = process.extract(str(item['ReportedDCID']), choices)
+	print (ratio[1])
+	if ratio[1][1] >= 85:
+	"""
+	item['acccept/reject'] = 'accept'
+	with open('xml-templates/property_accept_connection.xml') as template_file:
+		ES_Client.post_property_response(template_file, item['PropertyID'])
+	propertyContactName = ''.join(ES_Client.get_Property_ContactName(item['PropertyID']))
+	propertyContactEmail = ''.join(ES_Client.get_Property_ContactEmail(item['PropertyID']))
+	propertyDCRealID = ''.join(ES_Client.get_DCRealID(item['PropertyID']))
+	propertyName = ''.join(ES_Client.get_property_name(item['PropertyID']))
+	messageSubject = emailBodys.loc[emailBodys['Email Type'] == 'Property Share Accepted','Subject'].values[0]
+	messageBody = emailBodys.loc[emailBodys['Email Type'] == 'Property Share Accepted','Body'].values[0]
+	is_valid = validate_email(propertyContactEmail, verify = True)
+	if is_valid != False:
+		messageBody = messageBody.replace('[NAME]', propertyContactName)
+		messageBody = messageBody.replace('[PROPERTY NAME]', propertyName)
+		messageBody = messageBody.replace('[UBI]', propertyDCRealID)
+		m = account.new_message()
+		m.sender.address = 'info.benchmark@DC.gov'
+		m.cc.add('info.benchmark@DC.gov')	
+		m.to.add(propertyContactEmail)
+		m.subject = messageSubject
+		m.body = messageBody
+		m.send()
+	
+	"""
+	elif ratio[1][1] < 85:
 		item['acccept/reject'] = 'reject'
 		with open('xml-templates/property_reject_connection.xml') as template_file:
 			ES_Client.post_property_response(template_file, item['PropertyID'])
@@ -91,12 +98,13 @@ for index, item in pendingPropertyShares.iterrows():
 			messageBody = messageBody.replace('[UBI]', propertyDCRealID)
 			m = account.new_message()
 			m.sender.address = 'info.benchmark@DC.gov'
+			m.cc.add('info.benchmark@DC.gov')	
 			m.to.add(propertyContactEmail)
 			m.bcc.add('JoAnna.Saunders@dc.gov')
 			m.subject = messageSubject
 			m.body = messageBody
 			m.send()
-
+	"""
 
 print ("----Accepts/Rejects invitation")
 

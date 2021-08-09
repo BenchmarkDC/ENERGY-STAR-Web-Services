@@ -79,6 +79,7 @@ for index, item in Data_View.iterrows():
 		m = account.new_message()
 		m.sender.address = 'info.benchmark@DC.gov'
 		m.to.add(item['Email Address'])
+		m.cc.add('info.benchmark@DC.gov')	
 		m.subject = messageSubject
 		m.body = messageBody
 		m.send()		
